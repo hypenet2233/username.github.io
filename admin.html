@@ -21,9 +21,24 @@
     .modal-content{background:#fff;padding:1.5rem;border-radius:.75rem;box-shadow:0 4px 10px rgba(0,0,0,.1);width:90%;max-width:420px;text-align:center}
     .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
     .help-hint{font-size:12px;color:#64748b}
+
+    /* ========================================= */
+    /* تنسيق شاشة القفل               */
+    /* ========================================= */
+    #login-overlay {
+      position: fixed;
+      inset: 0; /* تغطي الشاشة كاملة */
+      background: #1f2937; /* لون خلفية غامق */
+      z-index: 9999; /* تظهر فوق كل شيء */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: white;
+    }
   </style>
 
-  <!-- Injected Firebase config for HYPE NET Display Page -->
+  <!-- إعدادات Firebase -->
   <script>
     window.__app_id = "hype-net-display-page";
     window.__firebase_config = JSON.stringify({"apiKey": "AIzaSyBaDcnOmMeZaoJT6wLRlezFsveJL7aAtdc", "authDomain": "hype-net-display-page.firebaseapp.com", "projectId": "hype-net-display-page", "storageBucket": "hype-net-display-page.firebasestorage.app", "messagingSenderId": "505174394261", "appId": "1:505174394261:web:92fe3ffec55c8a2ad0a29c", "measurementId": "G-M7YWJKGP62"});
@@ -41,6 +56,28 @@
     try { app = initializeApp(firebaseConfig); db = getFirestore(app); auth = getAuth(app); }
     catch(e){ console.error("Firebase initialization error:", e); alert("تعذّر تهيئة Firebase. تأكد من تمرير __firebase_config بشكل صحيح."); }
 
+    // ==========================================
+    //       نظام الحماية (كلمة المرور)
+    // ==========================================
+    const SECRET_PIN = "Saeed.14233"; // <<<< كلمة المرور هنا
+
+    // جعل الدالة متاحة في HTML
+    window.checkLogin = function() {
+      const input = document.getElementById('admin-password').value;
+      const errorMsg = document.getElementById('login-error');
+      
+      if (input === SECRET_PIN) {
+        // كلمة المرور صحيحة
+        document.getElementById('login-overlay').style.display = 'none'; // إخفاء القفل
+        signIn(); // البدء بالاتصال بقاعدة البيانات الآن فقط
+      } else {
+        // كلمة المرور خاطئة
+        errorMsg.textContent = "كلمة المرور خاطئة! حاول مرة أخرى.";
+        errorMsg.style.display = 'block';
+        document.getElementById('admin-password').value = ''; // مسح الحقل
+      }
+    }
+
     let unsubscribeLinks=null, unsubscribeProducts=null;
 
     async function signIn() {
@@ -50,6 +87,7 @@
           try { await signInWithCustomToken(auth, tok); } 
           catch (e) { console.warn("Custom token sign-in failed, falling back to anonymous.", e); await signInAnonymously(auth); }
         } else { await signInAnonymously(auth); }
+        
         document.getElementById('app-id-display').textContent = appId;
         loadLinks(); loadProducts();
       } catch (e) { console.error("Error signing in:", e); alert("فشل تسجيل الدخول."); }
@@ -139,10 +177,42 @@
     window.addLink=addLink; window.addProduct=addProduct;
     window.showDeleteModal=showDeleteModal; window.hideDeleteModal=hideDeleteModal;
 
-    signIn();
+    // تم إيقاف تسجيل الدخول التلقائي هنا
+    // يجب استدعاء signIn() فقط بعد إدخال كلمة المرور الصحيحة
   </script>
 </head>
 <body class="bg-gray-50 text-gray-800">
+
+  <!-- ======================== -->
+  <!--      شاشة تسجيل الدخول     -->
+  <!-- ======================== -->
+  <div id="login-overlay">
+    <div class="bg-white p-8 rounded-2xl shadow-2xl text-center w-full max-w-sm">
+      <div class="mb-4 text-green-600">
+        <!-- أيقونة القفل -->
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+      </div>
+      <h2 class="text-2xl font-bold text-gray-800 mb-2">منطقة محمية</h2>
+      <p class="text-gray-500 mb-6 text-sm">هذه الصفحة خاصة بإدارة HYPE NET</p>
+      
+      <!-- حقل كلمة المرور -->
+      <input type="password" id="admin-password" placeholder="أدخل رمز الدخول" 
+        class="w-full p-3 border border-gray-300 rounded-lg mb-4 text-center text-lg text-black focus:border-green-500 focus:outline-none"
+        onkeyup="if(event.key === 'Enter') checkLogin()">
+      
+      <!-- رسالة الخطأ -->
+      <p id="login-error" class="text-red-500 text-sm mb-4 font-bold" style="display: none;"></p>
+
+      <!-- زر الدخول -->
+      <button onclick="checkLogin()" class="w-full bg-green-600 text-white p-3 rounded-lg font-bold hover:bg-green-700 transition shadow-lg">
+        دخول
+      </button>
+    </div>
+  </div>
+
+  <!-- المحتوى الرئيسي (مخفي تحت القفل) -->
   <div class="container mx-auto p-4 md:p-8">
     <div class="header rounded-2xl shadow-lg mb-8">
       <h1 class="text-4xl md:text-5xl font-extrabold mb-3 text-green-700">لوحة تحكم HYPE NET</h1>
