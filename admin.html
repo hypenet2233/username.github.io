@@ -53,10 +53,24 @@
        loadPortfolio();
     }
 
+    // دالة مساعدة لضمان صحة الرابط قبل الحفظ
+    const sanitizeUrl = (url) => {
+        if (!url) return '';
+        let cleanUrl = url.trim();
+        // إذا لم يبدأ بـ http/https، أضف https تلقائياً
+        if (cleanUrl && !cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+            cleanUrl = 'https://' + cleanUrl;
+        }
+        return cleanUrl;
+    };
+
     // --- 1. إدارة الروابط (النظام القديم) ---
     async function addLink(){
       const title = document.getElementById('link-title').value.trim();
-      const url = document.getElementById('link-url').value.trim();
+      const rawUrl = document.getElementById('link-url').value;
+      
+      const url = sanitizeUrl(rawUrl); // تنظيف الرابط
+
       if(!title || !url) return alert('البيانات ناقصة');
       await addDoc(collection(db, `artifacts/${appId}/public/data/links`), { title, url, timestamp: serverTimestamp() });
       document.getElementById('link-title').value=''; document.getElementById('link-url').value='';
@@ -72,7 +86,10 @@
     // --- 2. إدارة المنتجات (النظام القديم) ---
     async function addProduct(){
       const title = document.getElementById('product-title').value.trim();
-      const url = document.getElementById('product-url').value.trim();
+      const rawUrl = document.getElementById('product-url').value;
+
+      const url = sanitizeUrl(rawUrl); // تنظيف الرابط
+
       if(!title || !url) return alert('البيانات ناقصة');
       await addDoc(collection(db, `artifacts/${appId}/public/data/products`), { title, url, timestamp: serverTimestamp() });
       document.getElementById('product-title').value=''; document.getElementById('product-url').value='';
@@ -88,13 +105,22 @@
     // --- 3. إدارة المعرض (النظام الجديد المضاف) ---
     async function addPortfolio(){
       const title = document.getElementById('port-title').value.trim();
-      const url = document.getElementById('port-url').value.trim();
-      const img = document.getElementById('port-img').value.trim();
+      const rawUrl = document.getElementById('port-url').value;
+      const rawImg = document.getElementById('port-img').value;
       const platform = document.getElementById('port-platform').value;
 
-      if(!title || !url || !img) return alert('البيانات ناقصة (تأكد من الصورة)');
+      // تنظيف الروابط
+      const url = sanitizeUrl(rawUrl);
+      const img = sanitizeUrl(rawImg);
+
+      if(!title || !url || !img) return alert('البيانات ناقصة (تأكد من الصورة والرابط)');
+      
       await addDoc(collection(db, `artifacts/${appId}/public/data/portfolio`), { title, url, img, platform, timestamp: serverTimestamp() });
-      document.getElementById('port-title').value=''; document.getElementById('port-url').value=''; document.getElementById('port-img').value='';
+      
+      // تفريغ الحقول
+      document.getElementById('port-title').value=''; 
+      document.getElementById('port-url').value=''; 
+      document.getElementById('port-img').value='';
     }
 
     function loadPortfolio(){
@@ -105,12 +131,13 @@
                 const el = document.createElement('div');
                 el.className = 'bg-white p-3 rounded shadow flex items-center gap-3 border border-gray-200';
                 el.innerHTML = `
-                    <img src="${item.img}" class="w-12 h-12 object-cover rounded">
+                    <img src="${item.img}" class="w-12 h-12 object-cover rounded" onerror="this.src='https://via.placeholder.com/50?text=Err'">
                     <div class="flex-1">
                         <div class="font-bold text-sm">${item.title}</div>
-                        <div class="text-xs text-blue-600">${item.platform}</div>
+                        <div class="text-xs text-blue-600 truncate max-w-[150px]">${item.url}</div>
+                        <div class="text-[10px] text-gray-500 badge-${item.platform}">${item.platform}</div>
                     </div>
-                    <button class="text-red-500 text-sm font-bold" onclick="deleteItem('portfolio', '${d.id}')">X</button>
+                    <button class="text-red-500 text-sm font-bold bg-red-50 p-2 rounded hover:bg-red-100" onclick="deleteItem('portfolio', '${d.id}')">حذف</button>
                 `;
                 box.appendChild(el);
             });
@@ -122,14 +149,19 @@
         const item = docData.data();
         const el = document.createElement('div');
         el.className = 'bg-gray-50 p-2 rounded flex justify-between items-center mb-2 border';
-        el.innerHTML = `<span>${item.title}</span> <button class="text-red-500 font-bold" onclick="deleteItem('${collectionName}', '${docData.id}')">X</button>`;
+        el.innerHTML = `
+            <div class="flex flex-col overflow-hidden">
+                <span class="font-bold">${item.title}</span>
+                <span class="text-xs text-gray-400 truncate">${item.url}</span>
+            </div> 
+            <button class="text-red-500 font-bold shrink-0 mr-2" onclick="deleteItem('${collectionName}', '${docData.id}')">X</button>`;
         container.appendChild(el);
     }
 
     window.addLink = addLink;
     window.addProduct = addProduct;
     window.addPortfolio = addPortfolio;
-    window.deleteItem = async (col, id) => { if(confirm('حذف؟')) await deleteDoc(doc(db, `artifacts/${appId}/public/data/${col}`, id)); };
+    window.deleteItem = async (col, id) => { if(confirm('هل أنت متأكد من الحذف؟')) await deleteDoc(doc(db, `artifacts/${appId}/public/data/${col}`, id)); };
   </script>
 </head>
 <body class="bg-gray-100 pb-20">
@@ -153,10 +185,10 @@
             <h2 class="section-title">1. الروابط العامة (Links)</h2>
             <div class="space-y-3 mb-4">
                 <input id="link-title" placeholder="عنوان الرابط" class="w-full p-2 border rounded">
-                <input id="link-url" placeholder="الرابط URL" class="w-full p-2 border rounded">
+                <input id="link-url" placeholder="الرابط URL (مثال: google.com)" class="w-full p-2 border rounded">
                 <button onclick="addLink()" class="w-full bg-gray-700 text-white p-2 rounded">أضف رابط</button>
             </div>
-            <div id="links-container" class="text-sm"></div>
+            <div id="links-container" class="text-sm space-y-2"></div>
         </div>
 
         <!-- القسم 2: المنتجات النصية -->
@@ -167,7 +199,7 @@
                 <input id="product-url" placeholder="رابط المنتج" class="w-full p-2 border rounded">
                 <button onclick="addProduct()" class="w-full bg-gray-700 text-white p-2 rounded">أضف منتج</button>
             </div>
-            <div id="products-container" class="text-sm"></div>
+            <div id="products-container" class="text-sm space-y-2"></div>
         </div>
 
     </div>
@@ -183,7 +215,7 @@
                 <option value="behance">Behance</option>
                 <option value="other">أخرى</option>
             </select>
-            <input id="port-url" placeholder="رابط الشراء" class="p-2 border rounded">
+            <input id="port-url" placeholder="رابط الشراء (لا تقلق بشأن https)" class="p-2 border rounded">
             <input id="port-img" placeholder="رابط الصورة (Image Address)" class="p-2 border rounded">
         </div>
         <button onclick="addPortfolio()" class="w-full bg-green-600 hover:bg-green-700 text-white p-3 rounded font-bold shadow">نشر التصميم في المعرض</button>
